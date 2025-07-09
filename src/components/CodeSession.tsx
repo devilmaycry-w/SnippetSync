@@ -6,6 +6,7 @@ interface CodeSessionProps {
   sessionId: string;
   onForkSession: (sessionId: string) => void;
   onBackToLanding: () => void;
+  skipIntro?: boolean;
 }
 
 interface AISuggestion {
@@ -18,6 +19,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   sessionId,
   onForkSession,
   onBackToLanding,
+  skipIntro = false,
 }) => {
   const [code, setCode] = useState('');
   const [terminalOutput, setTerminalOutput] = useState('');
@@ -34,6 +36,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
+  // Only use skipIntro prop from App.tsx
 
   // Helper to get and set daily API call count
   useEffect(() => {
@@ -209,12 +212,12 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   useEffect(() => {
     // If loaded directly (not via app navigation), show intro
     // Heuristic: if there's no navigation state or referrer is not this site
-    if (document.referrer === '' || !document.referrer.includes(window.location.hostname)) {
+    if ((document.referrer === '' || !document.referrer.includes(window.location.hostname)) && !skipIntro) {
       setShowIntro(true);
     }
-  }, []);
+  }, [skipIntro]);
 
-  if (showIntro) {
+  if (showIntro && !skipIntro) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#111418] px-4">
         <h2 className="text-2xl sm:text-3xl font-bold text-[#6a5af9] mb-4 break-words">Session ID: {sessionId}</h2>

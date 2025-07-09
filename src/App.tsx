@@ -10,6 +10,7 @@ function App() {
   const [sessionId, setSessionId] = useState('');
   const [forkedFromId, setForkedFromId] = useState('');
   const [toast, setToast] = useState('');
+  const [skipIntro, setSkipIntro] = useState(false);
 
   // Helper to show toast
   const showToast = (msg: string) => {
@@ -104,6 +105,7 @@ function App() {
 
   const handleBackToCodeSession = (originalSessionId: string) => {
     setSessionId(originalSessionId);
+    setSkipIntro(true);
     setCurrentView('session');
   };
 
@@ -120,6 +122,7 @@ function App() {
           sessionId={sessionId}
           onForkSession={handleForkSession}
           onBackToLanding={handleBackToLanding}
+          skipIntro={skipIntro}
         />
       )}
       {currentView === 'forked' && (
