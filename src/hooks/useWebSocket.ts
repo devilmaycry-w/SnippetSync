@@ -27,8 +27,8 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
   useEffect(() => {
     if (!sessionId) return;
 
-    // WebSocket server URL - adjust based on your setup
-    const wsUrl = `ws://localhost:8080`;
+    // WebSocket server URL - dynamically construct based on current host
+    const wsUrl = `ws://${window.location.hostname}:8080`;
     
     ws.current = new WebSocket(wsUrl);
 
