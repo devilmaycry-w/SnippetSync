@@ -38,7 +38,7 @@ Developers need a lightweight, privacy-focused tool for real-time code collabora
 
 ## 🛠️ Getting Started
 
-1. **Access the App:** Visit [Insert Hosted URL, e.g., Vercel/Netlify].
+1. **Access the App:** Visit the Hosted URL, e.g., on Vercel/Netlify].
 2. **Start a Session:** Click “Start New Session” to generate a unique URL.
 3. **Join a Session:** Enter a session URL on the landing page.
 4. **Collaborate:** Edit code, run snippets, and view AI suggestions.
@@ -50,7 +50,7 @@ Developers need a lightweight, privacy-focused tool for real-time code collabora
 
 ## 🌐 Demo Setup
 
-- **Live Demo:** [Insert Hosted URL] (e.g., deployed on Vercel).
+- **Live Demo:** your Hosted URL from(e.g., deployed on Vercel/Netlify).
 - **Demo Flow:**
   - Create a session on the landing page.
   - Share the URL with a collaborator.
