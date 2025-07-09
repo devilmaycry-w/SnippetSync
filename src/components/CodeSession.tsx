@@ -54,6 +54,18 @@ const CodeSession: React.FC<CodeSessionProps> = ({
     localStorage.setItem('judge0_count', String(count));
   };
 
+  // Get persistent userId for this session
+  function getOrCreateUserId(sessionId: string) {
+    const key = `snippet_userid_${sessionId}`;
+    let userId = localStorage.getItem(key);
+    if (!userId) {
+      userId = Math.random().toString(36).substring(2, 10);
+      localStorage.setItem(key, userId);
+    }
+    return userId;
+  }
+  const myUserId = getOrCreateUserId(sessionId);
+
   // Handle incoming WebSocket messages
   React.useEffect(() => {
     if (!lastMessage) return;
@@ -62,6 +74,12 @@ const CodeSession: React.FC<CodeSessionProps> = ({
       case 'code_update':
         if (lastMessage.code !== code) {
           setCode(lastMessage.code);
+          // Restore cursor if update is from this user
+          if (lastMessage.userId === myUserId && textareaRef.current && typeof lastMessage.cursor === 'number') {
+            setTimeout(() => {
+              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = lastMessage.cursor;
+            }, 0);
+          }
         }
         break;
       case 'execution_result':
@@ -75,14 +93,17 @@ const CodeSession: React.FC<CodeSessionProps> = ({
       default:
         break;
     }
-  }, [lastMessage, code]);
+  }, [lastMessage, code, myUserId]);
 
   // Send code changes to other users
   const handleCodeChange = (newCode: string) => {
     setCode(newCode);
+    const cursorPos = textareaRef.current ? textareaRef.current.selectionStart : 0;
     sendMessage({
       type: 'code_change',
-      code: newCode
+      code: newCode,
+      cursor: cursorPos,
+      userId: myUserId
     });
   };
 
