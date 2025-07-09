@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Share, Play, Wand2, Copy } from 'lucide-react';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 interface ForkedSessionProps {
   sessionId: string;
@@ -14,6 +15,36 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
 }) => {
   const [code, setCode] = useState('');
   const [activeTab, setActiveTab] = useState<'code' | 'chat'>('code');
+  const { isConnected, connectedUsers, sendMessage, lastMessage } = useWebSocket(sessionId);
+
+  // Handle incoming WebSocket messages
+  React.useEffect(() => {
+    if (!lastMessage) return;
+
+    switch (lastMessage.type) {
+      case 'code_update':
+        if (lastMessage.code !== code) {
+          setCode(lastMessage.code);
+        }
+        break;
+      case 'joined_session':
+        if (lastMessage.currentCode) {
+          setCode(lastMessage.currentCode);
+        }
+        break;
+      default:
+        break;
+    }
+  }, [lastMessage, code]);
+
+  // Send code changes to other users
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    sendMessage({
+      type: 'code_change',
+      code: newCode
+    });
+  };
 
   const handleShare = () => {
     const url = `${window.location.origin}/session/${sessionId}`;
@@ -24,6 +55,10 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
   const handleRunCode = () => {
     // Placeholder for code execution
     console.log('Running code:', code);
+    sendMessage({
+      type: 'code_execution',
+      output: 'Code execution coming soon...'
+    });
   };
 
   const handleAISuggestion = () => {
@@ -110,7 +145,7 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
               <div className="max-w-full">
                 <textarea
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => handleCodeChange(e.target.value)}
                   className="w-full resize-none overflow-hidden rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#283039] focus:border-none min-h-64 sm:min-h-80 lg:min-h-96 placeholder:text-[#9cabba] p-4 text-base font-normal leading-normal font-mono"
                   placeholder="Start typing your code here..."
                 />
@@ -147,6 +182,12 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
           </div>
         </div>
       </div>
+      
+      {!isConnected && (
+        <div className="bg-red-600 text-white text-center py-2 text-sm">
+          Disconnected from server - attempting to reconnect...
+        </div>
+      )}
     </div>
   );
 };
