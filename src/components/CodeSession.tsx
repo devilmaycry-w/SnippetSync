@@ -87,15 +87,13 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   };
 
   const handleCopyUrl = () => {
-    const url = `${window.location.origin}/session/${sessionId}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(sessionId);
     setShowWhatsApp(true);
-    setToast('Session URL copied!');
+    setToast('Session ID copied!');
   };
 
   const handleWhatsAppShare = () => {
-    const url = `${window.location.origin}/session/${sessionId}`;
-    const text = encodeURIComponent(`Join my SnippetSync session: ${url}`);
+    const text = encodeURIComponent(`Join my SnippetSync session: https://snippxt-sync.netlify.app . Your session id is : ${sessionId}, Join now! lets commit more.`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
