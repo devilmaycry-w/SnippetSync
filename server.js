@@ -60,50 +60,69 @@ wss.on('connection', (ws) => {
       console.log('Received message:', message);
 
       switch (message.type) {
-        case 'join_session':
+        case 'create_session': {
           const { sessionId } = message;
-          const userId = generateUserId();
-          
-          // Create session if it doesn't exist
-          if (!sessions.has(sessionId)) {
-            sessions.set(sessionId, {
-              id: sessionId,
-              clients: [],
-              code: '',
-              createdAt: new Date()
-            });
+          if (sessions.has(sessionId)) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Session already exists.'
+            }));
+            break;
           }
-
+          sessions.set(sessionId, {
+            id: sessionId,
+            clients: [],
+            code: '',
+            createdAt: new Date()
+          });
+          ws.send(JSON.stringify({
+            type: 'session_created',
+            sessionId
+          }));
+          break;
+        }
+        case 'join_session': {
+          const { sessionId, userId: providedUserId } = message;
+          if (!sessions.has(sessionId)) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Session does not exist.'
+            }));
+            break;
+          }
+          const userId = providedUserId || generateUserId();
           const session = sessions.get(sessionId);
+          // Check if userId is already present
+          const alreadyPresent = session.clients.some(client => client.userId === userId);
+          if (alreadyPresent) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'User already connected in this session.'
+            }));
+            break;
+          }
           currentClient = {
             ws,
             userId,
             sessionId,
             joinedAt: new Date()
           };
-
           session.clients.push(currentClient);
-
-          // Send welcome message to the new client
           ws.send(JSON.stringify({
             type: 'joined_session',
             sessionId,
             userId,
             currentCode: session.code
           }));
-
-          // Notify all clients about the new user
           broadcastToSession(sessionId, {
             type: 'user_joined',
             userId,
             message: `User ${userId} joined the session`
           }, currentClient);
-
-          // Send updated session info to all clients
           sendSessionInfo(sessionId);
-          
           console.log(`User ${userId} joined session ${sessionId}`);
           break;
+        }
 
         case 'code_change':
           if (currentClient) {

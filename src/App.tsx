@@ -9,18 +9,82 @@ function App() {
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [sessionId, setSessionId] = useState('');
   const [forkedFromId, setForkedFromId] = useState('');
+  const [toast, setToast] = useState('');
 
-  const handleStartNewSession = () => {
-    const newSessionId = Math.random().toString(36).substring(2, 8);
-    setSessionId(newSessionId);
-    setCurrentView('session');
+  // Helper to show toast
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
   };
 
-  const handleJoinSession = (sessionUrl: string) => {
-    // Extract session ID from URL or use the input directly
+  // Helper to create a session via WebSocket
+  const createSession = (newSessionId: string) => {
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+      const ws = new window.WebSocket(`ws://${window.location.hostname}:8080`);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'create_session', sessionId: newSessionId }));
+      };
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'session_created') {
+          ws.close();
+          resolve({ success: true });
+        } else if (msg.type === 'error') {
+          ws.close();
+          resolve({ success: false, error: msg.message });
+        }
+      };
+      ws.onerror = () => {
+        ws.close();
+        resolve({ success: false, error: 'WebSocket error' });
+      };
+    });
+  };
+
+  // Helper to check if a session exists via WebSocket
+  const checkSessionExists = (id: string) => {
+    return new Promise<{ exists: boolean; error?: string }>((resolve) => {
+      const ws = new window.WebSocket(`ws://${window.location.hostname}:8080`);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join_session', sessionId: id }));
+      };
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'joined_session') {
+          ws.close();
+          resolve({ exists: true });
+        } else if (msg.type === 'error') {
+          ws.close();
+          resolve({ exists: false, error: msg.message });
+        }
+      };
+      ws.onerror = () => {
+        ws.close();
+        resolve({ exists: false, error: 'WebSocket error' });
+      };
+    });
+  };
+
+  const handleStartNewSession = async () => {
+    const newSessionId = Math.random().toString(36).substring(2, 8);
+    const result = await createSession(newSessionId);
+    if (result.success) {
+      setSessionId(newSessionId);
+      setCurrentView('session');
+    } else {
+      showToast(result.error || 'Failed to create session');
+    }
+  };
+
+  const handleJoinSession = async (sessionUrl: string) => {
     const id = sessionUrl.split('/').pop() || sessionUrl;
-    setSessionId(id);
-    setCurrentView('session');
+    const result = await checkSessionExists(id);
+    if (result.exists) {
+      setSessionId(id);
+      setCurrentView('session');
+    } else {
+      showToast(result.error || 'Session does not exist');
+    }
   };
 
   const handleForkSession = (originalSessionId: string) => {
@@ -34,6 +98,11 @@ function App() {
     setCurrentView('landing');
     setSessionId('');
     setForkedFromId('');
+  };
+
+  const handleBackToCodeSession = (originalSessionId: string) => {
+    setSessionId(originalSessionId);
+    setCurrentView('session');
   };
 
   return (
@@ -56,7 +125,13 @@ function App() {
           sessionId={sessionId}
           forkedFromId={forkedFromId}
           onBackToLanding={handleBackToLanding}
+          onBackToCodeSession={handleBackToCodeSession}
         />
+      )}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[#0a65c1] text-white px-4 py-2 rounded shadow-lg z-50">
+          {toast}
+        </div>
       )}
     </div>
   );

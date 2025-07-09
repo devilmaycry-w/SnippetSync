@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface WebSocketMessage {
   type: string;
@@ -17,6 +17,18 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState(0);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Persistent userId per session
+  function getOrCreateUserId(sessionId: string) {
+    const key = `snippet_userid_${sessionId}`;
+    let userId = localStorage.getItem(key);
+    if (!userId) {
+      userId = Math.random().toString(36).substring(2, 10);
+      localStorage.setItem(key, userId);
+    }
+    return userId;
+  }
 
   const sendMessage = useCallback((message: WebSocketMessage) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -24,22 +36,19 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
     }
   }, []);
 
-  useEffect(() => {
-    if (!sessionId) return;
-
-    // WebSocket server URL - dynamically construct based on current host
+  const connectWebSocket = useCallback(() => {
+    // const wsUrl = 'ws://localhost:8080';
     const wsUrl = `ws://${window.location.hostname}:8080`;
-    
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {
       console.log('WebSocket connected');
       setIsConnected(true);
-      
-      // Join the session
+
       sendMessage({
         type: 'join_session',
-        sessionId
+        sessionId,
+        userId: getOrCreateUserId(sessionId)
       });
     };
 
@@ -47,10 +56,8 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
         console.log('Received WebSocket message:', message);
-        
         setLastMessage(message);
 
-        // Handle specific message types
         switch (message.type) {
           case 'session_info':
             setConnectedUsers(message.connectedUsers || 0);
@@ -60,7 +67,6 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
             break;
           case 'user_joined':
           case 'user_left':
-            // These will be handled by session_info updates
             break;
           case 'session_expired':
             console.log('Session expired:', message.message);
@@ -74,22 +80,38 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
     };
 
     ws.current.onclose = () => {
-      console.log('WebSocket disconnected');
+      console.warn('WebSocket disconnected');
       setIsConnected(false);
       setConnectedUsers(0);
+
+      // Attempt reconnection after delay
+      reconnectTimeout.current = setTimeout(() => {
+        console.log('Reconnecting WebSocket...');
+        connectWebSocket();
+      }, 2000);
     };
 
     ws.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error('WebSocket error:', error, 'State:', ws.current?.readyState);
       setIsConnected(false);
     };
+  }, [sessionId, sendMessage]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const delay = setTimeout(() => {
+      connectWebSocket();
+    }, 100); // Debounce initial connection
 
     return () => {
+      clearTimeout(delay);
+      if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
       if (ws.current) {
         ws.current.close();
       }
     };
-  }, [sessionId, sendMessage]);
+  }, [sessionId, connectWebSocket]);
 
   return {
     isConnected,

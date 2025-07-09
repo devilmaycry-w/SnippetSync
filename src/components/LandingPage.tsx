@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Code, Moon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Code, Keyboard } from 'lucide-react';
 
 interface LandingPageProps {
   onStartNewSession: () => void;
@@ -11,6 +11,33 @@ const LandingPage: React.FC<LandingPageProps> = ({
   onJoinSession,
 }) => {
   const [sessionUrl, setSessionUrl] = useState('');
+  const [iconAnim, setIconAnim] = useState('');
+  const [darkMode, setDarkMode] = useState(true);
+
+  // Dark mode effect
+  useEffect(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored) setDarkMode(stored === 'dark');
+    else setDarkMode(true);
+  }, []);
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.body.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
+
+  const handleIconClick = () => {
+    setIconAnim('animate-bounce');
+    setTimeout(() => setIconAnim(''), 700);
+  };
+
+  const handleThemeToggle = () => {
+    setDarkMode((prev) => !prev);
+  };
 
   const handleJoinClick = () => {
     if (sessionUrl.trim()) {
@@ -29,14 +56,30 @@ const LandingPage: React.FC<LandingPageProps> = ({
       <div>
         <div className="flex items-center bg-[#111418] p-4 pb-2 justify-between">
           <div className="text-white flex size-12 shrink-0 items-center">
-            <Code size={24} />
+            <span
+              className={`text-2xl select-none cursor-pointer transition-transform duration-300 ${iconAnim}`}
+              onClick={handleIconClick}
+              style={{ fontFamily: 'monospace', fontWeight: 700 }}
+              title="Jay Baba Ki!"
+            >
+              {'<>'}
+            </span>
           </div>
-          <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
+          <h2 className="flex-1 text-center bg-clip-text text-transparent text-lg font-bold leading-tight tracking-[-0.015em] pl-0"
+            style={{
+              backgroundImage: 'linear-gradient(90deg, #6a5af9 0%, #a66cff 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             SnippetSync
           </h2>
           <div className="flex w-12 items-center justify-end">
-            <button className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 bg-transparent text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0 hover:bg-[#283039] transition-colors">
-              <Moon size={24} />
+            <button
+              className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 bg-transparent text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0 hover:bg-[#283039] transition-colors"
+              onClick={handleThemeToggle}
+            >
+              <Keyboard size={24} />
             </button>
           </div>
         </div>
@@ -81,7 +124,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       
       <div>
         <p className="text-[#9cabba] text-sm font-normal leading-normal pb-3 pt-1 px-4 text-center">
-          Built for Hackathon 2025 | Auto-expires in 24 hours.
+          Built with Codexcity | Auto-expires in 24 hours.
         </p>
         <div className="h-5 bg-[#111418]"></div>
       </div>
