@@ -1,11 +1,11 @@
-import WebSocket from 'ws';
+import { WebSocketServer } from 'ws';
 import http from 'http';
 
 // Create HTTP server
 const server = http.createServer();
 
 // Create WebSocket server
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server });
 
 // Store active sessions and their connected clients
 const sessions = new Map();
