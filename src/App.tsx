@@ -19,8 +19,9 @@ function App() {
 
   // Helper to create a session via WebSocket
   const createSession = (newSessionId: string) => {
+    const wsUrl = import.meta.env.VITE_WS_URL;
     return new Promise<{ success: boolean; error?: string }>((resolve) => {
-      const ws = new window.WebSocket(`ws://${window.location.hostname}:8080`);
+      const ws = new window.WebSocket(wsUrl);
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'create_session', sessionId: newSessionId }));
       };
@@ -43,8 +44,9 @@ function App() {
 
   // Helper to check if a session exists via WebSocket
   const checkSessionExists = (id: string) => {
+    const wsUrl = import.meta.env.VITE_WS_URL;
     return new Promise<{ exists: boolean; error?: string }>((resolve) => {
-      const ws = new window.WebSocket(`ws://${window.location.hostname}:8080`);
+      const ws = new window.WebSocket(wsUrl);
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'join_session', sessionId: id }));
       };
