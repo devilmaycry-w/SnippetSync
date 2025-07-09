@@ -2,7 +2,22 @@ import { WebSocketServer } from 'ws';
 import http from 'http';
 
 // Create HTTP server
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  // Health check endpoint for Render
+  if (req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+    return;
+  }
+  // Optionally, respond to root for browser visits
+  if (req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('SnippetSync WebSocket server is running!');
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
 
 // Create WebSocket server
 const wss = new WebSocketServer({ server });
