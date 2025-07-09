@@ -33,6 +33,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   const [toast, setToast] = useState('');
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
 
   // Helper to get and set daily API call count
   useEffect(() => {
@@ -185,6 +186,31 @@ const CodeSession: React.FC<CodeSessionProps> = ({
       return () => clearTimeout(t);
     }
   }, [toast]);
+
+  useEffect(() => {
+    // If loaded directly (not via app navigation), show intro
+    // Heuristic: if there's no navigation state or referrer is not this site
+    if (document.referrer === '' || !document.referrer.includes(window.location.hostname)) {
+      setShowIntro(true);
+    }
+  }, []);
+
+  if (showIntro) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#111418] px-4">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[#6a5af9] mb-4 break-words">Session ID: {sessionId}</h2>
+        <p className="text-lg text-center text-white mb-6 max-w-xl">
+          Copy this unique session id to collaborate with your team member. Lets Commit!!
+        </p>
+        <button
+          onClick={() => setShowIntro(false)}
+          className="px-6 py-3 rounded-xl bg-[#0a65c1] text-white text-base font-bold hover:bg-[#0952a1] transition-colors"
+        >
+          Join Session
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen justify-between" style={{ fontFamily: 'Inter, "Noto Sans", sans-serif' }}>
