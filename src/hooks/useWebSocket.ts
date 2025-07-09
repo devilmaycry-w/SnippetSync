@@ -37,8 +37,7 @@ export const useWebSocket = (sessionId: string): UseWebSocketReturn => {
   }, []);
 
   const connectWebSocket = useCallback(() => {
-    // const wsUrl = 'ws://localhost:8080';
-    const wsUrl = `ws://${window.location.hostname}:8080`;
+    const wsUrl = import.meta.env.VITE_WS_URL;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {
