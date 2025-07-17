@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, LogOut, Play, Wand2, Copy } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Play, 
+  Copy, 
+  Sparkles, 
+  MessageSquare, 
+  Code2, 
+  Terminal,
+  Zap,
+  Settings,
+  Users,
+  ChevronDown,
+  Send,
+  Bot
+} from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 interface ForkedSessionProps {
@@ -9,20 +23,51 @@ interface ForkedSessionProps {
   onBackToCodeSession: (sessionId: string) => void;
 }
 
+interface ChatMessage {
+  id: string;
+  type: 'user' | 'ai';
+  content: string;
+  timestamp: Date;
+}
+
 const ForkedSession: React.FC<ForkedSessionProps> = ({
   sessionId,
   forkedFromId,
   onBackToLanding,
   onBackToCodeSession,
 }) => {
-  const [code, setCode] = useState('');
-  const [activeTab, setActiveTab] = useState<'code' | 'chat'>('code');
+  const [code, setCode] = useState('# Forked Session - AI Enhanced\n# This is your private workspace with unlimited AI features\n\ndef fibonacci(n):\n    """Calculate fibonacci number with memoization"""\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\n# Try the AI suggestions below!');
+  const [activeTab, setActiveTab] = useState<'code' | 'terminal' | 'chat'>('code');
   const [language, setLanguage] = useState('python');
   const [terminalOutput, setTerminalOutput] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const [aiCount, setAiCount] = useState(0);
   const [toast, setToast] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: '1',
+      type: 'ai',
+      content: 'Welcome to your forked session! I can help you improve your code, explain concepts, and provide suggestions. What would you like to work on?',
+      timestamp: new Date()
+    }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const { isConnected, connectedUsers, sendMessage, lastMessage } = useWebSocket(sessionId);
+
+  const languages = [
+    { id: 'python', name: 'Python', icon: '🐍' },
+    { id: 'javascript', name: 'JavaScript', icon: '🟨' },
+    { id: 'typescript', name: 'TypeScript', icon: '🔷' },
+    { id: 'cpp', name: 'C++', icon: '⚡' },
+    { id: 'java', name: 'Java', icon: '☕' },
+    { id: 'go', name: 'Go', icon: '🐹' },
+    { id: 'rust', name: 'Rust', icon: '🦀' },
+    { id: 'php', name: 'PHP', icon: '🐘' },
+  ];
 
   // Handle incoming WebSocket messages
   React.useEffect(() => {
@@ -53,12 +98,6 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
     });
   };
 
-  const handleShare = () => {
-    const url = `${window.location.origin}/session/${sessionId}`;
-    navigator.clipboard.writeText(url);
-    // You could add a toast notification here
-  };
-
   // Helper to get and set daily AI call count
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -80,8 +119,12 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
 
   // AI API call helper
   const callAI = async (prompt: string) => {
+    if (aiCount >= 30) {
+      setToast('Daily AI limit reached (30/30)');
+      return '';
+    }
+
     try {
-      // TODO: AI API key is now loaded from environment variables (see .env)
       const AI_KEY = import.meta.env.VITE_AI_KEY;
       const response = await fetch('https://api.chatanywhere.tech/v1/chat/completions', {
         method: 'POST',
@@ -96,14 +139,15 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
           ]
         }),
       });
+      
       const data = await response.json();
-      const output = data.choices?.[0]?.message?.content || 'No output.';
+      const output = data.choices?.[0]?.message?.content || 'No response from AI.';
       updateAiCount(aiCount + 1);
-      setToast(`${29 - aiCount} daily AI executions left`);
+      setToast(`AI calls remaining: ${29 - aiCount}/30`);
       return output;
     } catch (err) {
-      setToast('Error with AI API.');
-      return '';
+      setToast('AI service temporarily unavailable');
+      return 'Sorry, I encountered an error. Please try again.';
     }
   };
 
@@ -112,13 +156,14 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
       setToast('Please enter some code to run.');
       return;
     }
-    if (aiCount >= 30) {
-      setToast('Daily AI code execution limit reached.');
-      return;
-    }
-    setTerminalOutput('Running...');
-    const output = await callAI(`Execute this ${language} code and show the output only:\n${code}`);
+
+    setIsRunning(true);
+    setActiveTab('terminal');
+    setTerminalOutput('Executing with AI enhancement...');
+
+    const output = await callAI(`Execute this ${language} code and show only the output:\n\n${code}`);
     setTerminalOutput(output);
+    setIsRunning(false);
   };
 
   const handleAISuggestion = async () => {
@@ -126,12 +171,17 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
       setToast('Please enter some code to improve.');
       return;
     }
-    if (aiCount >= 30) {
-      setToast('Daily AI code execution limit reached.');
-      return;
+
+    setIsRunning(true);
+    const improved = await callAI(`Improve this ${language} code by making it more efficient, readable, and following best practices. Return only the improved code:\n\n${code}`);
+    if (improved && improved !== 'Sorry, I encountered an error. Please try again.') {
+      setCode(improved);
+      sendMessage({
+        type: 'code_change',
+        code: improved
+      });
     }
-    const improved = await callAI(`Improve and format this ${language} code, make it more advanced, and return only the improved code:\n${code}`);
-    if (improved) setCode(improved);
+    setIsRunning(false);
   };
 
   const handleCopyCode = () => {
@@ -139,186 +189,359 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
     setToast('Code copied to clipboard!');
   };
 
-  // Toast auto-hide
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(''), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
 
-  // Keyboard shortcut for Ctrl+Enter
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: chatInput,
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+    setIsAiTyping(true);
+
+    const aiResponse = await callAI(`You are a helpful coding assistant. The user is working on this ${language} code:\n\n${code}\n\nUser question: ${chatInput}\n\nProvide a helpful response about their code or question.`);
+
+    const aiMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      type: 'ai',
+      content: aiResponse,
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, aiMessage]);
+    setIsAiTyping(false);
+  };
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRunCode();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleCopyCode();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [code, language, aiCount]);
 
-  // Listen for execution_result from WebSocket
+  // Toast auto-hide
   useEffect(() => {
-    if (lastMessage && lastMessage.type === 'execution_result') {
-      setTerminalOutput(lastMessage.output);
+    if (toast) {
+      const t = setTimeout(() => setToast(''), 4000);
+      return () => clearTimeout(t);
     }
-  }, [lastMessage]);
-
-  const ActionButton: React.FC<{
-    icon: React.ReactNode;
-    label: string;
-    onClick: () => void;
-    disabled?: boolean;
-  }> = ({ icon, label, onClick, disabled }) => (
-    <div className="flex flex-col items-center gap-2 bg-[#111418] py-2.5 text-center">
-      <button
-        onClick={onClick}
-        className="rounded-full bg-[#283039] p-2.5 hover:bg-[#3a4551] transition-colors"
-        disabled={disabled}
-      >
-        <div className="text-white">{icon}</div>
-      </button>
-      <p className="text-white text-sm font-medium leading-normal">{label}</p>
-    </div>
-  );
+  }, [toast]);
 
   return (
-    <div className="flex flex-col min-h-screen justify-between" style={{ fontFamily: 'Inter, "Noto Sans", sans-serif' }}>
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex items-center bg-[#111418] p-4 pb-2 justify-between sticky top-0 z-10">
-          <button
-            onClick={() => onBackToCodeSession(forkedFromId)}
-            className="text-white flex size-12 shrink-0 items-center cursor-pointer hover:bg-[#283039] rounded-xl transition-colors"
-          >
-            <ArrowLeft size={24} />
-          </button>
-          <div className="flex w-12 items-center justify-end">
-            <button
-              onClick={onBackToLanding}
-              className="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 bg-transparent text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0 hover:bg-[#283039] transition-colors"
-              title="Logout"
-            >
-              <LogOut size={24} />
-            </button>
-          </div>
-        </div>
-        
-        <div className="max-w-4xl mx-auto px-4">
-          <p className="text-[#9cabba] text-sm font-normal leading-normal pb-3 pt-1 text-center">
-            Forked from {forkedFromId}
-          </p>
-          
-          <div className="pb-3">
-            <div className="flex border-b border-[#3b4754] gap-4 sm:gap-8 justify-center sm:justify-start">
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* Header */}
+      <header className="border-b border-gray-800/50 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
               <button
-                onClick={() => setActiveTab('code')}
-                className={`flex flex-col items-center justify-center border-b-[3px] pb-[13px] pt-4 px-4 ${
-                  activeTab === 'code'
-                    ? 'border-b-white text-white'
-                    : 'border-b-transparent text-[#9cabba]'
-                }`}
+                onClick={() => onBackToCodeSession(forkedFromId)}
+                className="premium-button-secondary p-2"
+                title="Back to Original Session"
               >
-                <p className="text-sm font-bold leading-normal tracking-[0.015em]">Code</p>
+                <ArrowLeft className="w-4 h-4" />
               </button>
+              
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-white">AI-Enhanced Fork</h1>
+                  <p className="text-xs text-gray-400">Forked from: {forkedFromId}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* AI Usage Counter */}
+              <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-purple-900/30 border border-purple-500/20">
+                <Bot className="w-4 h-4 text-purple-400" />
+                <span className="text-sm text-purple-300">{30 - aiCount}/30 AI calls</span>
+              </div>
+
+              {/* Language Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                  className="premium-button-secondary flex items-center space-x-2"
+                >
+                  <span>{languages.find(l => l.id === language)?.icon}</span>
+                  <span>{languages.find(l => l.id === language)?.name}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                
+                {showLanguageDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-48 glass-effect rounded-xl border border-gray-700/50 premium-shadow-lg z-50">
+                    {languages.map((lang) => (
+                      <button
+                        key={lang.id}
+                        onClick={() => {
+                          setLanguage(lang.id);
+                          setShowLanguageDropdown(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-white/5 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl smooth-transition"
+                      >
+                        <span>{lang.icon}</span>
+                        <span className="text-white">{lang.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button
-                onClick={() => setActiveTab('chat')}
-                className={`flex flex-col items-center justify-center border-b-[3px] pb-[13px] pt-4 px-4 ${
-                  activeTab === 'chat'
-                    ? 'border-b-white text-white'
-                    : 'border-b-transparent text-[#9cabba]'
-                }`}
+                onClick={onBackToLanding}
+                className="premium-button-secondary"
               >
-                <p className="text-sm font-bold leading-normal tracking-[0.015em]">Chat</p>
+                Exit
               </button>
             </div>
           </div>
-          
-          <div className="py-3">
-            {activeTab === 'code' ? (
-              <div className="max-w-full">
-                <div className="flex gap-2 pb-2">
-                  <label className="text-[#9cabba] text-sm">Language:</label>
-                  <select
-                    value={language}
-                    onChange={e => setLanguage(e.target.value)}
-                    className="bg-[#283039] text-white rounded px-2 py-1 text-sm"
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-800/50 bg-gray-900/50">
+          <div className="flex items-center px-8">
+            <button
+              onClick={() => setActiveTab('code')}
+              className={`tab-button ${activeTab === 'code' ? 'active' : ''}`}
+            >
+              <Code2 className="w-4 h-4 mr-2" />
+              Code Editor
+            </button>
+            <button
+              onClick={() => setActiveTab('terminal')}
+              className={`tab-button ${activeTab === 'terminal' ? 'active' : ''}`}
+            >
+              <Terminal className="w-4 h-4 mr-2" />
+              AI Terminal
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              AI Assistant
+            </button>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 p-8">
+          {activeTab === 'code' && (
+            <div className="h-full flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">AI-Enhanced Code Editor</h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleAISuggestion}
+                    disabled={isRunning || aiCount >= 30}
+                    className="premium-button-secondary flex items-center space-x-2"
                   >
-                    <option value="python">Python</option>
-                    <option value="javascript">JavaScript</option>
-                    <option value="cpp">C++</option>
-                    <option value="c">C</option>
-                    <option value="java">Java</option>
-                    <option value="typescript">TypeScript</option>
-                    <option value="ruby">Ruby</option>
-                    <option value="go">Go</option>
-                    <option value="php">PHP</option>
-                  </select>
+                    {isRunning ? (
+                      <div className="loading-spinner" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    <span>AI Improve</span>
+                  </button>
+                  
+                  <button
+                    onClick={handleRunCode}
+                    disabled={isRunning || aiCount >= 30}
+                    className="premium-button flex items-center space-x-2"
+                    title="AI-Enhanced Run (Ctrl+Enter)"
+                  >
+                    {isRunning ? (
+                      <div className="loading-spinner" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                    <span>AI Run</span>
+                  </button>
                 </div>
+              </div>
+              
+              <div className="flex-1 glass-effect rounded-xl border border-gray-700/50 overflow-hidden">
                 <textarea
                   ref={textareaRef}
                   value={code}
                   onChange={(e) => handleCodeChange(e.target.value)}
-                  className="w-full flex-1 resize-y overflow-auto rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#283039] focus:border-none min-h-64 sm:min-h-80 lg:min-h-96 max-h-[32rem] placeholder:text-[#9cabba] p-4 text-base font-normal leading-normal font-mono"
-                  placeholder="Start typing your code here..."
+                  className="w-full h-full resize-none bg-transparent text-white placeholder-gray-400 p-6 code-editor focus:outline-none"
+                  placeholder="Your AI-enhanced code editor is ready..."
+                  spellCheck={false}
                 />
-                <div className="mt-4">
-                  <p className="text-white text-base font-medium leading-normal pb-2">Terminal</p>
-                  <textarea
-                    value={terminalOutput}
-                    readOnly
-                    className="w-full flex-1 resize-y overflow-auto rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#283039] focus:border-none min-h-32 sm:min-h-40 lg:min-h-48 max-h-[32rem] placeholder:text-[#9cabba] p-4 text-base font-normal leading-normal font-mono"
-                    placeholder="Output will appear here..."
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'terminal' && (
+            <div className="h-full flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">AI-Enhanced Terminal</h3>
+                <button
+                  onClick={() => setTerminalOutput('')}
+                  className="premium-button-secondary text-sm px-3 py-1"
+                >
+                  Clear
+                </button>
+              </div>
+              
+              <div className="flex-1 terminal-output rounded-xl p-6 overflow-auto">
+                <pre className="whitespace-pre-wrap text-sm">
+                  {terminalOutput || 'AI-enhanced terminal ready. Run your code to see intelligent output analysis.'}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'chat' && (
+            <div className="h-full flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white">AI Code Assistant</h3>
+                <div className="text-sm text-purple-400">
+                  Unlimited conversations about your code
+                </div>
+              </div>
+              
+              <div className="flex-1 flex flex-col space-y-4">
+                {/* Chat Messages */}
+                <div className="flex-1 glass-effect rounded-xl border border-gray-700/50 p-6 overflow-y-auto space-y-4">
+                  {chatMessages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] p-4 rounded-xl ${
+                          message.type === 'user'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-gray-800 text-gray-100 border border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 mb-2">
+                          {message.type === 'ai' && <Bot className="w-4 h-4 text-purple-400" />}
+                          <span className="text-xs opacity-70">
+                            {message.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                          {message.content}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {isAiTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-800 border border-gray-700 p-4 rounded-xl">
+                        <div className="flex items-center space-x-2">
+                          <Bot className="w-4 h-4 text-purple-400" />
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Chat Input */}
+                <div className="flex space-x-2">
+                  <input
+                    ref={chatInputRef}
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask me about your code, request improvements, or get explanations..."
+                    className="flex-1 premium-input"
+                    disabled={aiCount >= 30}
                   />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!chatInput.trim() || isAiTyping || aiCount >= 30}
+                    className="premium-button p-3"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            ) : (
-              <div className="max-w-full">
-                <div className="rounded-xl bg-[#283039] p-4 text-white text-base font-normal leading-normal min-h-64 sm:min-h-80 lg:min-h-96">
-                  <p className="text-[#9cabba]">Chat functionality coming soon...</p>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
-      
-      <div className="bg-[#111418] border-t border-[#283039]">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-3 gap-2 px-4 py-4">
-            <ActionButton
-              icon={<Play size={20} />}
-              label="Run"
-              onClick={handleRunCode}
-              disabled={aiCount >= 30}
-            />
-            <ActionButton
-              icon={<Wand2 size={20} />}
-              label="AI"
-              onClick={handleAISuggestion}
-              disabled={aiCount >= 30}
-            />
-            <ActionButton
-              icon={<Copy size={20} />}
-              label="Copy"
-              onClick={handleCopyCode}
-            />
-          </div>
-        </div>
+
+      {/* Bottom Action Bar */}
+      <div className="action-button-grid">
+        <button
+          onClick={handleRunCode}
+          disabled={isRunning || aiCount >= 30}
+          className="action-button"
+        >
+          {isRunning ? (
+            <div className="loading-spinner" />
+          ) : (
+            <Play className="w-5 h-5 text-emerald-400" />
+          )}
+          <span className="text-xs font-medium text-white">AI Run</span>
+        </button>
+        
+        <button
+          onClick={handleAISuggestion}
+          disabled={isRunning || aiCount >= 30}
+          className="action-button"
+        >
+          {isRunning ? (
+            <div className="loading-spinner" />
+          ) : (
+            <Sparkles className="w-5 h-5 text-purple-400" />
+          )}
+          <span className="text-xs font-medium text-white">Improve</span>
+        </button>
+        
+        <button
+          onClick={handleCopyCode}
+          className="action-button"
+        >
+          <Copy className="w-5 h-5 text-blue-400" />
+          <span className="text-xs font-medium text-white">Copy</span>
+        </button>
       </div>
-      
-      {!isConnected && (
-        <div className="bg-red-600 text-white text-center py-2 text-sm">
-          Disconnected from server - attempting to reconnect...
-        </div>
-      )}
+
+      {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[#0a65c1] text-white px-4 py-2 rounded shadow-lg z-50">
+        <div className="toast">
           {toast}
         </div>
       )}
-      {/* TODO: If you deploy this project to a new domain (e.g., Netlify), update the WebSocket URL and WhatsApp sharing URL accordingly. */}
+
+      {/* Click outside handler for dropdown */}
+      {showLanguageDropdown && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowLanguageDropdown(false)}
+        />
+      )}
     </div>
   );
 };

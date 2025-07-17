@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HelpCircle, X, MessageCircle } from 'lucide-react';
+import { 
+  Play, 
+  Copy, 
+  Share2, 
+  Users, 
+  Settings, 
+  GitBranch, 
+  MessageSquare,
+  Sparkles,
+  Terminal,
+  Code2,
+  Zap,
+  ChevronDown,
+  X,
+  ArrowLeft
+} from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 interface CodeSessionProps {
@@ -13,6 +28,7 @@ interface AISuggestion {
   id: string;
   title: string;
   description: string;
+  type: 'performance' | 'readability' | 'security' | 'best-practice';
 }
 
 const CodeSession: React.FC<CodeSessionProps> = ({
@@ -21,22 +37,55 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   onBackToLanding,
   skipIntro = false,
 }) => {
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState('# Welcome to SnippetSync!\n# Start coding here...\n\ndef hello_world():\n    print("Hello, World!")\n    return "Ready to code together!"\n\nhello_world()');
   const [terminalOutput, setTerminalOutput] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
   const { isConnected, connectedUsers, sendMessage, lastMessage } = useWebSocket(sessionId);
-  const [suggestions] = useState<AISuggestion[]>([
-    { id: '1', title: 'Improve code readability', description: 'Suggestion 1' },
-    { id: '2', title: 'Optimize function performance', description: 'Suggestion 2' },
-    { id: '3', title: 'Add error handling', description: 'Suggestion 3' },
-  ]);
-  const [language, setLanguage] = useState('python'); // Default language
+  const [activeTab, setActiveTab] = useState<'editor' | 'terminal' | 'suggestions'>('editor');
+  const [language, setLanguage] = useState('python');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [judge0Count, setJudge0Count] = useState(0);
   const [toast, setToast] = useState('');
-  const [showWhatsApp, setShowWhatsApp] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
-  // Only use skipIntro prop from App.tsx
+
+  const suggestions: AISuggestion[] = [
+    { 
+      id: '1', 
+      title: 'Add Error Handling', 
+      description: 'Wrap your code in try-catch blocks for better reliability',
+      type: 'best-practice'
+    },
+    { 
+      id: '2', 
+      title: 'Optimize Performance', 
+      description: 'Consider using list comprehensions for better performance',
+      type: 'performance'
+    },
+    { 
+      id: '3', 
+      title: 'Improve Readability', 
+      description: 'Add type hints and docstrings to your functions',
+      type: 'readability'
+    },
+    { 
+      id: '4', 
+      title: 'Security Check', 
+      description: 'Validate input parameters to prevent security issues',
+      type: 'security'
+    },
+  ];
+
+  const languages = [
+    { id: 'python', name: 'Python', icon: '🐍' },
+    { id: 'javascript', name: 'JavaScript', icon: '🟨' },
+    { id: 'typescript', name: 'TypeScript', icon: '🔷' },
+    { id: 'cpp', name: 'C++', icon: '⚡' },
+    { id: 'java', name: 'Java', icon: '☕' },
+    { id: 'go', name: 'Go', icon: '🐹' },
+    { id: 'rust', name: 'Rust', icon: '🦀' },
+    { id: 'php', name: 'PHP', icon: '🐘' },
+  ];
 
   // Helper to get and set daily API call count
   useEffect(() => {
@@ -77,16 +126,18 @@ const CodeSession: React.FC<CodeSessionProps> = ({
       case 'code_update':
         if (lastMessage.code !== code) {
           setCode(lastMessage.code);
-          // Restore cursor if update is from this user
           if (lastMessage.userId === myUserId && textareaRef.current && typeof lastMessage.cursor === 'number') {
             setTimeout(() => {
-              textareaRef.current.selectionStart = textareaRef.current.selectionEnd = lastMessage.cursor;
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = textareaRef.current.selectionEnd = lastMessage.cursor;
+              }
             }, 0);
           }
         }
         break;
       case 'execution_result':
         setTerminalOutput(lastMessage.output);
+        setIsRunning(false);
         break;
       case 'joined_session':
         if (lastMessage.currentCode) {
@@ -110,19 +161,19 @@ const CodeSession: React.FC<CodeSessionProps> = ({
     });
   };
 
-  const handleCopyUrl = () => {
+  const handleCopySessionId = () => {
     navigator.clipboard.writeText(sessionId);
-    setShowWhatsApp(true);
-    setToast('Session ID copied!');
+    setToast('Session ID copied to clipboard!');
   };
 
-  const handleWhatsAppShare = () => {
-    const text = encodeURIComponent(`Join my SnippetSync session: https://snippxt-sync.netlify.app . Your session id is : ${sessionId}, Join now! lets commit more.`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
-  };
-
-  const handleForkSession = () => {
-    onForkSession(sessionId);
+  const handleShareSession = () => {
+    const text = `Join my SnippetSync session: ${sessionId}`;
+    if (navigator.share) {
+      navigator.share({ title: 'SnippetSync Session', text });
+    } else {
+      navigator.clipboard.writeText(text);
+      setToast('Session details copied to clipboard!');
+    }
   };
 
   const handleRunCode = async () => {
@@ -131,14 +182,18 @@ const CodeSession: React.FC<CodeSessionProps> = ({
       return;
     }
     if (judge0Count >= 5) {
-      setToast('Daily Judge0 code execution limit reached. Fork session to use AI.');
+      setToast('Daily execution limit reached. Fork session for unlimited AI features.');
       return;
     }
-    setTerminalOutput('Running...');
+
+    setIsRunning(true);
+    setActiveTab('terminal');
+    setTerminalOutput('Executing code...');
+
     try {
-      // TODO: Judge0 API key and host are now loaded from environment variables (see .env)
       const JUDGE0_KEY = import.meta.env.VITE_JUDGE0_KEY;
       const JUDGE0_HOST = import.meta.env.VITE_JUDGE0_HOST;
+      
       const response = await fetch(`https://${JUDGE0_HOST}/submissions?base64_encoded=false&wait=true`, {
         method: 'POST',
         headers: {
@@ -151,67 +206,83 @@ const CodeSession: React.FC<CodeSessionProps> = ({
           language_id: getLanguageId(language),
         }),
       });
+      
       const data = await response.json();
       let output = '';
-      if (data.stderr) output = data.stderr;
-      else if (data.compile_output) output = data.compile_output;
-      else output = data.stdout || 'No output.';
+      if (data.stderr) output = `Error: ${data.stderr}`;
+      else if (data.compile_output) output = `Compile Error: ${data.compile_output}`;
+      else output = data.stdout || 'No output generated.';
+      
       setTerminalOutput(output);
       sendMessage({
         type: 'execution_result',
         output,
       });
+      
       updateJudge0Count(judge0Count + 1);
-      setToast(`${4 - judge0Count} daily code executions left`);
+      setToast(`${4 - judge0Count} executions remaining today`);
     } catch (err) {
-      setTerminalOutput('Error executing code.');
+      setTerminalOutput('Error: Failed to execute code. Please try again.');
+    } finally {
+      setIsRunning(false);
     }
   };
 
   // Helper to map language to Judge0 language_id
   function getLanguageId(lang: string) {
     const map: Record<string, number> = {
-      python: 71, // Python 3.8.1
-      javascript: 63, // Node.js 12.14.0
-      cpp: 54, // C++ (GCC 9.2.0)
-      c: 50, // C (GCC 9.2.0)
-      java: 62, // Java (OpenJDK 13.0.1)
-      typescript: 74, // TypeScript (3.7.4)
-      ruby: 72, // Ruby (2.7.0)
-      go: 60, // Go (1.13.5)
-      php: 68, // PHP (7.4.1)
-      // Add more as needed
+      python: 71,
+      javascript: 63,
+      cpp: 54,
+      c: 50,
+      java: 62,
+      typescript: 74,
+      ruby: 72,
+      go: 60,
+      php: 68,
+      rust: 73,
     };
     return map[lang] || 71;
   }
 
-  // Keyboard shortcut for Ctrl+Enter
+  const handleApplySuggestion = (suggestionId: string) => {
+    setToast('Fork this session to unlock AI-powered suggestions and unlimited features!');
+  };
+
+  const getSuggestionIcon = (type: AISuggestion['type']) => {
+    switch (type) {
+      case 'performance': return <Zap className="w-4 h-4 text-yellow-400" />;
+      case 'security': return <Settings className="w-4 h-4 text-red-400" />;
+      case 'readability': return <Code2 className="w-4 h-4 text-blue-400" />;
+      default: return <Sparkles className="w-4 h-4 text-emerald-400" />;
+    }
+  };
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRunCode();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleCopySessionId();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [code, language]);
 
-  const handleApplySuggestion = (suggestionId: string) => {
-    setToast('To use AI features, please fork the session.');
-  };
-
   // Toast auto-hide
   useEffect(() => {
     if (toast) {
-      const t = setTimeout(() => setToast(''), 3000);
+      const t = setTimeout(() => setToast(''), 4000);
       return () => clearTimeout(t);
     }
   }, [toast]);
 
   useEffect(() => {
-    // If loaded directly (not via app navigation), show intro
-    // Heuristic: if there's no navigation state or referrer is not this site
     if ((document.referrer === '' || !document.referrer.includes(window.location.hostname)) && !skipIntro) {
       setShowIntro(true);
     }
@@ -219,198 +290,271 @@ const CodeSession: React.FC<CodeSessionProps> = ({
 
   if (showIntro && !skipIntro) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#111418] px-4">
-        <h2 className="text-2xl sm:text-3xl font-bold text-[#6a5af9] mb-4 break-words">Session ID: {sessionId}</h2>
-        <p className="text-lg text-center text-white mb-6 max-w-xl">
-          Copy this unique session id to collaborate with your team member. Lets Commit!!
-        </p>
-        <button
-          onClick={() => setShowIntro(false)}
-          className="px-6 py-3 rounded-xl bg-[#0a65c1] text-white text-base font-bold hover:bg-[#0952a1] transition-colors"
-        >
-          Join Session
-        </button>
+      <div className="min-h-screen hero-gradient flex items-center justify-center px-8">
+        <div className="max-w-md w-full text-center space-y-8">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mx-auto premium-shadow-lg">
+            <Code2 className="w-10 h-10 text-white" />
+          </div>
+          
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-white">
+              Session Ready!
+            </h2>
+            <div className="space-y-2">
+              <p className="text-lg gradient-text font-semibold">
+                ID: {sessionId}
+              </p>
+              <p className="text-gray-300">
+                Share this ID with your team to start collaborating
+              </p>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => setShowIntro(false)}
+            className="premium-button w-full flex items-center justify-center space-x-2"
+          >
+            <ArrowRight className="w-4 h-4" />
+            <span>Enter Session</span>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen justify-between" style={{ fontFamily: 'Inter, "Noto Sans", sans-serif' }}>
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex items-center bg-[#111418] p-4 pb-2 justify-between sticky top-0 z-10">
-          <h2 className="hidden" />
-        </div>
-        
-        <div className="max-w-6xl mx-auto px-4 space-y-4">
-          <h2 className="text-white tracking-light text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight text-center pb-3 pt-5">
-            Your Digital WhiteBoard for next 24 hrs
-          </h2>
-          <h3 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] pb-2 pt-4">
-            Session ID: {sessionId}
-            <span className="ml-4 text-[#0a65c1] text-sm font-normal">{5 - judge0Count} daily code executions left</span>
-          </h3>
-          
-          <div className="flex flex-col sm:flex-row gap-3 w-full">
-            <button
-              onClick={handleCopyUrl}
-              className="flex w-full sm:w-auto min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#283039] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#3a4551] transition-colors"
-            >
-              <span className="truncate">Copy URL</span>
-            </button>
-            {showWhatsApp && (
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      {/* Header */}
+      <header className="border-b border-gray-800/50 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
               <button
-                onClick={handleWhatsAppShare}
-                className="flex w-full sm:w-auto items-center justify-center rounded-xl h-10 px-3 bg-[#25D366] text-white text-sm font-bold hover:bg-[#1ebe57] transition-colors"
-                title="Share on WhatsApp"
+                onClick={onBackToLanding}
+                className="premium-button-secondary p-2"
               >
-                <MessageCircle size={20} className="mr-1" /> WhatsApp
+                <ArrowLeft className="w-4 h-4" />
               </button>
-            )}
-            <button
-              onClick={handleForkSession}
-              className="flex w-full sm:w-auto min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#0a65c1] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#0952a1] transition-colors"
-            >
-              <span className="truncate">Fork Session</span>
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-            <div className="flex flex-col h-full space-y-4">
-              <div className="flex-1 flex flex-col">
-                <p className="text-white text-base font-medium leading-normal pb-2">Code Editor</p>
-                <div className="flex gap-2 pb-2">
-                  <label className="text-[#9cabba] text-sm">Language:</label>
-                  <select
-                    value={language}
-                    onChange={e => setLanguage(e.target.value)}
-                    className="bg-[#283039] text-white rounded px-2 py-1 text-sm"
-                  >
-                    <option value="python">Python</option>
-                    <option value="javascript">JavaScript</option>
-                    <option value="cpp">C++</option>
-                    <option value="c">C</option>
-                    <option value="java">Java</option>
-                    <option value="typescript">TypeScript</option>
-                    <option value="ruby">Ruby</option>
-                    <option value="go">Go</option>
-                    <option value="php">PHP</option>
-                  </select>
+              
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                  <Code2 className="w-4 h-4 text-white" />
                 </div>
-                <textarea
-                  ref={textareaRef}
-                  value={code}
-                  onChange={(e) => handleCodeChange(e.target.value)}
-                  className="w-full flex-1 resize-y overflow-auto rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#283039] focus:border-none min-h-64 sm:min-h-80 lg:min-h-96 max-h-[32rem] placeholder:text-[#9cabba] p-4 text-base font-normal leading-normal font-mono"
-                  placeholder="Start typing your code here..."
-                  style={{height: '100%', minHeight: '24rem'}}
-                />
+                <div>
+                  <h1 className="text-lg font-semibold text-white">SnippetSync</h1>
+                  <p className="text-xs text-gray-400">Session: {sessionId}</p>
+                </div>
               </div>
-              <div className="flex justify-end">
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* Connection Status */}
+              <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-800/50">
+                <div className={`status-indicator ${isConnected ? 'status-connected' : 'status-disconnected'}`} />
+                <Users className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-300">{connectedUsers}</span>
+              </div>
+
+              {/* Language Selector */}
+              <div className="relative">
                 <button
-                  onClick={handleRunCode}
-                  className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-[#0a65c1] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-[#0952a1] transition-colors"
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                  className="premium-button-secondary flex items-center space-x-2"
                 >
-                  <span className="truncate">Run</span>
+                  <span>{languages.find(l => l.id === language)?.icon}</span>
+                  <span>{languages.find(l => l.id === language)?.name}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                
+                {showLanguageDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-48 glass-effect rounded-xl border border-gray-700/50 premium-shadow-lg z-50">
+                    {languages.map((lang) => (
+                      <button
+                        key={lang.id}
+                        onClick={() => {
+                          setLanguage(lang.id);
+                          setShowLanguageDropdown(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-white/5 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl smooth-transition"
+                      >
+                        <span>{lang.icon}</span>
+                        <span className="text-white">{lang.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleCopySessionId}
+                  className="premium-button-secondary p-2"
+                  title="Copy Session ID (Ctrl+S)"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+                
+                <button
+                  onClick={handleShareSession}
+                  className="premium-button-secondary p-2"
+                  title="Share Session"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+                
+                <button
+                  onClick={() => onForkSession(sessionId)}
+                  className="premium-button flex items-center space-x-2"
+                >
+                  <GitBranch className="w-4 h-4" />
+                  <span>Fork</span>
                 </button>
               </div>
             </div>
-            <div className="flex flex-col h-full space-y-4">
-              <div className="flex-1 flex flex-col">
-                <p className="text-white text-base font-medium leading-normal pb-2">Terminal</p>
-                <textarea
-                  value={terminalOutput}
-                  readOnly
-                  className="w-full flex-1 resize-y overflow-auto rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#283039] focus:border-none min-h-64 sm:min-h-80 lg:min-h-96 max-h-[32rem] placeholder:text-[#9cabba] p-4 text-base font-normal leading-normal font-mono"
-                  placeholder="Output will appear here..."
-                  style={{height: '100%', minHeight: '24rem'}}
-                />
-              </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col lg:flex-row">
+        {/* Left Panel - Code Editor */}
+        <div className="flex-1 flex flex-col">
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-800/50 bg-gray-900/50">
+            <div className="flex items-center px-8">
+              <button
+                onClick={() => setActiveTab('editor')}
+                className={`tab-button ${activeTab === 'editor' ? 'active' : ''}`}
+              >
+                <Code2 className="w-4 h-4 mr-2" />
+                Editor
+              </button>
+              <button
+                onClick={() => setActiveTab('terminal')}
+                className={`tab-button ${activeTab === 'terminal' ? 'active' : ''}`}
+              >
+                <Terminal className="w-4 h-4 mr-2" />
+                Terminal
+              </button>
+              <button
+                onClick={() => setActiveTab('suggestions')}
+                className={`tab-button ${activeTab === 'suggestions' ? 'active' : ''}`}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Suggestions
+              </button>
             </div>
           </div>
-          
-          <div className="space-y-4">
-            <h3 className="text-white text-lg font-bold leading-tight tracking-[-0.015em] pt-4">
-              AI Suggestions
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {suggestions.map((suggestion) => (
-                <div key={suggestion.id} className="flex items-center gap-4 bg-[#283039] rounded-xl p-4 justify-between">
-                  <div className="flex flex-col justify-center flex-1 min-w-0">
-                    <p className="text-white text-base font-medium leading-normal line-clamp-1">
-                      {suggestion.title}
-                    </p>
-                    <p className="text-[#9cabba] text-sm font-normal leading-normal line-clamp-2">
-                      {suggestion.description}
-                    </p>
-                  </div>
-                  <div className="shrink-0">
+
+          {/* Content Area */}
+          <div className="flex-1 p-8">
+            {activeTab === 'editor' && (
+              <div className="h-full flex flex-col space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Code Editor</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-400">
+                      {5 - judge0Count} executions left today
+                    </span>
                     <button
-                      onClick={() => handleApplySuggestion(suggestion.id)}
-                      className="flex min-w-[60px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-8 px-3 bg-[#0a65c1] text-white text-sm font-medium leading-normal hover:bg-[#0952a1] transition-colors"
+                      onClick={handleRunCode}
+                      disabled={isRunning || judge0Count >= 5}
+                      className="premium-button flex items-center space-x-2"
+                      title="Run Code (Ctrl+Enter)"
                     >
-                      <span className="truncate">Apply</span>
+                      {isRunning ? (
+                        <div className="loading-spinner" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                      <span>Run</span>
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+                
+                <div className="flex-1 glass-effect rounded-xl border border-gray-700/50 overflow-hidden">
+                  <textarea
+                    ref={textareaRef}
+                    value={code}
+                    onChange={(e) => handleCodeChange(e.target.value)}
+                    className="w-full h-full resize-none bg-transparent text-white placeholder-gray-400 p-6 code-editor focus:outline-none"
+                    placeholder="Start typing your code here..."
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'terminal' && (
+              <div className="h-full flex flex-col space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Terminal Output</h3>
+                  <button
+                    onClick={() => setTerminalOutput('')}
+                    className="premium-button-secondary text-sm px-3 py-1"
+                  >
+                    Clear
+                  </button>
+                </div>
+                
+                <div className="flex-1 terminal-output rounded-xl p-6 overflow-auto">
+                  <pre className="whitespace-pre-wrap text-sm">
+                    {terminalOutput || 'No output yet. Run your code to see results here.'}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'suggestions' && (
+              <div className="h-full flex flex-col space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">AI Suggestions</h3>
+                  <div className="text-sm text-gray-400">
+                    Fork session to unlock AI features
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {suggestions.map((suggestion) => (
+                    <div key={suggestion.id} className="ai-suggestion-card">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          {getSuggestionIcon(suggestion.type)}
+                          <h4 className="font-medium text-white">{suggestion.title}</h4>
+                        </div>
+                        <button
+                          onClick={() => handleApplySuggestion(suggestion.id)}
+                          className="premium-button-secondary text-xs px-3 py-1"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-400 leading-relaxed">
+                        {suggestion.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-      
-      <div className="bg-[#111418] border-t border-[#283039]">
-        <p className="text-[#9cabba] text-sm font-normal leading-normal py-3 px-4 text-center">
-          Session auto-expires in 24 hours | {connectedUsers} user{connectedUsers !== 1 ? 's' : ''} connected
-          {!isConnected && ' | Disconnected'}
-        </p>
-      </div>
+
+      {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[#0a65c1] text-white px-4 py-2 rounded shadow-lg z-50">
+        <div className="toast">
           {toast}
         </div>
       )}
-      {showSidebar && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1" onClick={() => setShowSidebar(false)} style={{ background: 'rgba(0,0,0,0.3)' }} />
-          <div className="w-full max-w-md bg-[#181c23] h-full shadow-xl p-6 overflow-y-auto flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white text-lg font-bold">About SnippetSync</h3>
-              <button onClick={() => setShowSidebar(false)} className="text-white hover:text-[#0a65c1]">
-                <X size={28} />
-              </button>
-            </div>
-            <div className="text-[#9cabba] text-base space-y-4">
-              <div>
-                <b>What is SnippetSync?</b>
-                <p>SnippetSync lets you collaborate on code in real-time. Share your session URL, code together, and see live results instantly.</p>
-              </div>
-              <div>
-                <b>How to use:</b>
-                <ul className="list-disc pl-5">
-                  <li>Start a new session or join an existing one with a session URL.</li>
-                  <li>Type code in the editor. All changes sync instantly for everyone in the session.</li>
-                  <li>Click <b>Run</b> to execute code (limited daily runs).</li>
-                  <li>Fork the session to use AI features and advanced code suggestions.</li>
-                  <li>Share your session with the <b>Copy URL</b> and <b>WhatsApp</b> buttons.</li>
-                  <li>Session auto-expires in 24 hours.</li>
-                </ul>
-              </div>
-              <div>
-                <b>Tips:</b>
-                <ul className="list-disc pl-5">
-                  <li>Use <b>Ctrl+Enter</b> to run code quickly.</li>
-                  <li>Forked sessions are private and AI-powered.</li>
-                  <li>So it’s better to note down any unique session of your choice instead of making new ones every time.</li>
-                </ul>
-              </div>
-              <div>
-                <b>Need help?</b>
-                <p>Contact the developer or check the project README for more info.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+
+      {/* Click outside handler for dropdown */}
+      {showLanguageDropdown && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowLanguageDropdown(false)}
+        />
       )}
     </div>
   );
