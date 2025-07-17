@@ -241,19 +241,19 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
   }, [toast]);
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
       {/* Header */}
       <header className="border-b border-gray-800/50 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <button
+      <button
                 onClick={() => onBackToCodeSession(forkedFromId)}
                 className="premium-button-secondary p-2"
                 title="Back to Original Session"
-              >
+      >
                 <ArrowLeft className="w-4 h-4" />
-              </button>
+      </button>
               
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
@@ -271,10 +271,17 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
               <div className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-purple-900/30 border border-purple-500/20">
                 <Bot className="w-4 h-4 text-purple-400" />
                 <span className="text-sm text-purple-300">{30 - aiCount}/30 AI calls</span>
-              </div>
+    </div>
 
               {/* Language Selector */}
               <div className="relative">
+                {showLanguageDropdown && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowLanguageDropdown(false)}
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                )}
                 <button
                   onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
                   className="premium-button-secondary flex items-center space-x-2"
@@ -289,11 +296,12 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
                     {languages.map((lang) => (
                       <button
                         key={lang.id}
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => {
                           setLanguage(lang.id);
-                          setShowLanguageDropdown(false);
+                          setTimeout(() => setShowLanguageDropdown(false), 0);
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-white/5 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl smooth-transition"
+                        className={`w-full px-4 py-3 text-left hover:bg-white/5 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl smooth-transition ${language === lang.id ? 'bg-white/10' : ''}`}
                       >
                         <span>{lang.icon}</span>
                         <span className="text-white">{lang.name}</span>
@@ -303,8 +311,8 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
                 )}
               </div>
 
-              <button
-                onClick={onBackToLanding}
+          <button
+            onClick={onBackToLanding}
                 className="premium-button-secondary"
               >
                 Exit
@@ -332,7 +340,7 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
             >
               <Terminal className="w-4 h-4 mr-2" />
               AI Terminal
-            </button>
+          </button>
             <button
               onClick={() => setActiveTab('chat')}
               className={`tab-button ${activeTab === 'chat' ? 'active' : ''}`}
@@ -342,15 +350,15 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
             </button>
           </div>
         </div>
-
+        
         {/* Content Area */}
         <div className="flex-1 p-8">
           {activeTab === 'code' && (
-            <div className="h-full flex flex-col space-y-4">
+            <div className="flex flex-col flex-1 min-h-0 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">AI-Enhanced Code Editor</h3>
                 <div className="flex items-center space-x-2">
-                  <button
+              <button
                     onClick={handleAISuggestion}
                     disabled={isRunning || aiCount >= 30}
                     className="premium-button-secondary flex items-center space-x-2"
@@ -361,9 +369,9 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
                       <Sparkles className="w-4 h-4" />
                     )}
                     <span>AI Improve</span>
-                  </button>
+              </button>
                   
-                  <button
+              <button
                     onClick={handleRunCode}
                     disabled={isRunning || aiCount >= 30}
                     className="premium-button flex items-center space-x-2"
@@ -375,16 +383,16 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
                       <Play className="w-4 h-4" />
                     )}
                     <span>AI Run</span>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex-1 glass-effect rounded-xl border border-gray-700/50 overflow-hidden">
+              </button>
+            </div>
+          </div>
+          
+              <div className="flex-1 min-h-0 glass-effect rounded-xl border border-gray-700/50 overflow-hidden">
                 <textarea
                   ref={textareaRef}
                   value={code}
                   onChange={(e) => handleCodeChange(e.target.value)}
-                  className="w-full h-full resize-none bg-transparent text-white placeholder-gray-400 p-6 code-editor focus:outline-none"
+                  className="w-full h-full min-h-0 resize-none bg-transparent text-white placeholder-gray-400 p-6 code-editor focus:outline-none"
                   placeholder="Your AI-enhanced code editor is ready..."
                   spellCheck={false}
                 />
@@ -460,10 +468,10 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
                             <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
+              </div>
+            )}
+          </div>
                 
                 {/* Chat Input */}
                 <div className="flex space-x-2">
@@ -490,11 +498,11 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
           )}
         </div>
       </div>
-
+      
       {/* Bottom Action Bar */}
       <div className="action-button-grid">
         <button
-          onClick={handleRunCode}
+              onClick={handleRunCode}
           disabled={isRunning || aiCount >= 30}
           className="action-button"
         >
@@ -507,7 +515,7 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
         </button>
         
         <button
-          onClick={handleAISuggestion}
+              onClick={handleAISuggestion}
           disabled={isRunning || aiCount >= 30}
           className="action-button"
         >
@@ -520,27 +528,19 @@ const ForkedSession: React.FC<ForkedSessionProps> = ({
         </button>
         
         <button
-          onClick={handleCopyCode}
+              onClick={handleCopyCode}
           className="action-button"
         >
           <Copy className="w-5 h-5 text-blue-400" />
           <span className="text-xs font-medium text-white">Copy</span>
         </button>
       </div>
-
+      
       {/* Toast Notification */}
       {toast && (
         <div className="toast">
           {toast}
         </div>
-      )}
-
-      {/* Click outside handler for dropdown */}
-      {showLanguageDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowLanguageDropdown(false)}
-        />
       )}
     </div>
   );

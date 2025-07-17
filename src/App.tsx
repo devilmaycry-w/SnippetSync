@@ -110,7 +110,7 @@ function App() {
   };
 
   return (
-    <div className="relative flex size-full min-h-screen flex-col bg-[#111418] dark justify-between group/design-root overflow-x-hidden">
+    <div className="relative flex size-full min-h-screen flex-col bg-white dark:bg-[#111418] justify-between group/design-root overflow-x-hidden">
       {currentView === 'landing' && (
         <LandingPage
           onStartNewSession={handleStartNewSession}

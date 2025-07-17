@@ -82,6 +82,12 @@ const LandingPage: React.FC<LandingPageProps> = ({
       {/* Hero Section */}
       <main className="relative z-10 max-w-7xl mx-auto px-8 py-16">
         <div className="text-center space-y-8">
+          <div className="flex justify-center mb-2">
+            <span className="glass-effect premium-shadow px-5 py-2 rounded-full text-emerald-300 font-semibold text-sm tracking-wide relative overflow-hidden" style={{position:'relative'}}>
+              <span className="z-10 relative">Sync made easy</span>
+              <span className="absolute left-0 top-0 w-full h-full pointer-events-none" style={{background: 'linear-gradient(120deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 60%, rgba(255,255,255,0.01) 100%)', borderRadius: '9999px', mixBlendMode: 'screen'}}></span>
+            </span>
+          </div>
           <div className="space-y-4">
             <h2 className="text-5xl md:text-6xl font-bold text-white leading-tight">
               Code Together
@@ -228,6 +234,9 @@ const LandingPage: React.FC<LandingPageProps> = ({
               <span>•</span>
               <span>Open Source</span>
             </div>
+          </div>
+          <div>
+            {/* Footer link removed as requested */}
           </div>
         </div>
       </footer>

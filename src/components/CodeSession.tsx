@@ -13,7 +13,8 @@ import {
   Zap,
   ChevronDown,
   X,
-  ArrowLeft
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -213,8 +214,8 @@ const CodeSession: React.FC<CodeSessionProps> = ({
       else if (data.compile_output) output = `Compile Error: ${data.compile_output}`;
       else output = data.stdout || 'No output generated.';
       
-      setTerminalOutput(output);
-      sendMessage({
+    setTerminalOutput(output);
+    sendMessage({
         type: 'execution_result',
         output,
       });
@@ -289,7 +290,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
   }, [skipIntro]);
 
   if (showIntro && !skipIntro) {
-    return (
+  return (
       <div className="min-h-screen hero-gradient flex items-center justify-center px-8">
         <div className="max-w-md w-full text-center space-y-8">
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mx-auto premium-shadow-lg">
@@ -299,7 +300,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
           <div className="space-y-4">
             <h2 className="text-3xl font-bold text-white">
               Session Ready!
-            </h2>
+          </h2>
             <div className="space-y-2">
               <p className="text-lg gradient-text font-semibold">
                 ID: {sessionId}
@@ -307,34 +308,34 @@ const CodeSession: React.FC<CodeSessionProps> = ({
               <p className="text-gray-300">
                 Share this ID with your team to start collaborating
               </p>
-            </div>
           </div>
+        </div>
           
-          <button
+            <button
             onClick={() => setShowIntro(false)}
             className="premium-button w-full flex items-center justify-center space-x-2"
-          >
+            >
             <ArrowRight className="w-4 h-4" />
             <span>Enter Session</span>
-          </button>
+            </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
       {/* Header */}
       <header className="border-b border-gray-800/50 bg-gray-900/95 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <button
+            <button
                 onClick={onBackToLanding}
                 className="premium-button-secondary p-2"
-              >
+            >
                 <ArrowLeft className="w-4 h-4" />
-              </button>
+            </button>
               
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
@@ -353,10 +354,17 @@ const CodeSession: React.FC<CodeSessionProps> = ({
                 <div className={`status-indicator ${isConnected ? 'status-connected' : 'status-disconnected'}`} />
                 <Users className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-300">{connectedUsers}</span>
-              </div>
-
+          </div>
+          
               {/* Language Selector */}
               <div className="relative">
+                {showLanguageDropdown && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowLanguageDropdown(false)}
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                )}
                 <button
                   onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
                   className="premium-button-secondary flex items-center space-x-2"
@@ -365,17 +373,17 @@ const CodeSession: React.FC<CodeSessionProps> = ({
                   <span>{languages.find(l => l.id === language)?.name}</span>
                   <ChevronDown className="w-4 h-4" />
                 </button>
-                
                 {showLanguageDropdown && (
                   <div className="absolute top-full right-0 mt-2 w-48 glass-effect rounded-xl border border-gray-700/50 premium-shadow-lg z-50">
                     {languages.map((lang) => (
                       <button
                         key={lang.id}
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => {
                           setLanguage(lang.id);
-                          setShowLanguageDropdown(false);
+                          setTimeout(() => setShowLanguageDropdown(false), 0);
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-white/5 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl smooth-transition"
+                        className={`w-full px-4 py-3 text-left hover:bg-white/5 flex items-center space-x-3 first:rounded-t-xl last:rounded-b-xl smooth-transition ${language === lang.id ? 'bg-white/10' : ''}`}
                       >
                         <span>{lang.icon}</span>
                         <span className="text-white">{lang.name}</span>
@@ -384,7 +392,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
                   </div>
                 )}
               </div>
-
+              
               {/* Action Buttons */}
               <div className="flex items-center space-x-2">
                 <button
@@ -446,7 +454,7 @@ const CodeSession: React.FC<CodeSessionProps> = ({
               </button>
             </div>
           </div>
-
+          
           {/* Content Area */}
           <div className="flex-1 p-8">
             {activeTab === 'editor' && (
@@ -533,28 +541,20 @@ const CodeSession: React.FC<CodeSessionProps> = ({
                       <p className="text-sm text-gray-400 leading-relaxed">
                         {suggestion.description}
                       </p>
-                    </div>
-                  ))}
                 </div>
+              ))}
+            </div>
               </div>
             )}
           </div>
         </div>
       </div>
-
+      
       {/* Toast Notification */}
       {toast && (
         <div className="toast">
           {toast}
-        </div>
-      )}
-
-      {/* Click outside handler for dropdown */}
-      {showLanguageDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowLanguageDropdown(false)}
-        />
+      </div>
       )}
     </div>
   );
